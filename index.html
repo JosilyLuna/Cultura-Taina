@@ -1,1 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Herencia Cultural Dominicana: Taínos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados para el juego */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f5f5; /* Un gris muy claro */
+            transition: background-color 0.5s;
+        }
+        .drop-zone {
+            min-height: 250px;
+            transition: all 0.3s ease;
+        }
+        /* Color para Taínos (Resaltar) */
+        .drop-zone.taino {
+            background-color: #e6ffe6; /* Verde-Marrón claro, alusivo a la naturaleza/tierra */
+            border-color: #008000; /* Verde más fuerte */
+        }
+        /* Color para Otras Culturas (Neutro) */
+        .drop-zone.otras-culturas {
+            background-color: #f0f8ff; /* Azul claro */
+            border-color: #007bff; /* Azul primario */
+        }
+        .drag-over-taino {
+            background-color: #ccffcc !important; /* Resalte al arrastrar */
+        }
+        .drag-over-otras-culturas {
+            background-color: #e0f0ff !important; /* Resalte al arrastrar */
+        }
+        .item-card {
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .item-card:active {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        .correct-drop {
+            border: 3px solid #28a745 !important;
+            background-color: #e9f5e9 !important;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+        }
+        .incorrect-drop {
+            border: 3px solid #dc3545 !important;
+            background-color: #f8e5e5 !important;
+            box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center justify-center min-h-screen">
 
+    <div id="game-container" class="w-full max-w-6xl bg-white p-6 md:p-10 rounded-xl shadow-2xl">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-5xl font-extrabold text-gray-800">Herencia Cultural Dominicana 🇩🇴</h1>
+            <p class="mt-2 text-xl text-gray-500">Arrastra cada elemento a su origen: **Taíno** (Resaltar) u **Otras Culturas**.</p>
+        </header>
+
+        <div class="flex justify-between items-center mb-6 p-4 bg-yellow-50 rounded-lg shadow-inner">
+            <p class="text-xl font-semibold text-yellow-800">Puntaje: <span id="score-display" class="text-2xl font-bold">0</span></p>
+            <button id="next-button" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-full shadow-md transition transform hover:scale-105" onclick="loadNextRound()">
+                Siguiente
+            </button>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            
+            <div id="drop-taino" data-category="Taíno" 
+                 class="drop-zone taino border-4 border-dashed rounded-xl p-4 text-center">
+                <h2 class="text-3xl font-bold text-green-900 mb-4">Herencia Taína <span class="text-4xl">🏹</span></h2>
+                <p class="text-gray-700 mb-4">Objetos, comidas o costumbres de origen taíno.</p>
+                <div id="taino-list" class="flex flex-wrap justify-center gap-3">
+                    </div>
+            </div>
+
+            <div id="drop-otras-culturas" data-category="Otras Culturas" 
+                 class="drop-zone otras-culturas border-4 border-dashed rounded-xl p-4 text-center">
+                <h2 class="text-3xl font-bold text-blue-900 mb-4">Otras Culturas <span class="text-4xl">🚢</span></h2>
+                <p class="text-gray-700 mb-4">Aportes de culturas europeas, africanas, etc.</p>
+                <div id="otras-culturas-list" class="flex flex-wrap justify-center gap-3">
+                    </div>
+            </div>
+        </div>
+
+        <div id="draggable-items" class="bg-gray-100 p-5 rounded-xl shadow-lg">
+            <h2 class="text-xl font-semibold text-gray-600 mb-4 text-center">Clasifica este elemento:</h2>
+            <div id="current-item-container" class="flex justify-center items-center">
+                </div>
+        </div>
+        
+    </div>
+
+    <div id="modal-end" class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-md w-11/12">
+            <h3 class="text-3xl font-bold text-gray-800 mb-4">¡Juego Terminado! 🎉</h3>
+            <p class="text-xl mb-6">Tu puntaje final es: <span id="final-score" class="text-green-600 font-extrabold text-3xl"></span></p>
+            <button onclick="location.reload()" class="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full transition transform hover:scale-105">
+                Volver a Jugar
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Datos del Juego (Modificados) ---
+        const ITEMS = [
+            // Taínos
+            { name: "Casabe", category: "Taíno", emoji: "🍘", description: "Pan de yuca." },
+            { name: "Hamaca", category: "Taíno", emoji: "⛱️", description: "Cama colgante de red." },
+            { name: "Canoa", category: "Taíno", emoji: "🛶", description: "Embarcación de un tronco." },
+            { name: "Areito", category: "Taíno", emoji: "💃", description: "Baile y ceremonia." },
+            { name: "Yuca", category: "Taíno", emoji: "🍠", description: "Cultivo fundamental." },
+            { name: "Cohoba", category: "Taíno", emoji: "👃", description: "Ritual de inhalación." },
+            
+            // Otras Culturas (España, África, etc.)
+            { name: "Mangú", category: "Otras Culturas", emoji: "🍌", description: "Plato de plátanos majados (Influencia africana/española)." },
+            { name: "Sancocho", category: "Otras Culturas", emoji: "🍲", description: "Guiso de carnes y tubérculos (Mezcla de culturas)." },
+            { name: "Guitarra", category: "Otras Culturas", emoji: "🎸", description: "Instrumento musical (Origen europeo)." },
+            { name: "Arroz", category: "Otras Culturas", emoji: "🍚", description: "Cultivo y alimento básico (Origen asiático/europeo)." },
+            { name: "Mofongo", category: "Otras Culturas", emoji: "🍽️", description: "Plátano frito majado con chicharrón (Origen africano/caribeño)." },
+            { name: "Catolicismo", category: "Otras Culturas", emoji: "⛪", description: "Religión (Origen europeo)." },
+        ];
+        
+        // --- Variables de Estado ---
+        let score = 0;
+        let itemsToClassify = [...ITEMS]; 
+        let currentItem = null;
+        let isDragging = false;
+        
+        // --- Referencias DOM ---
+        const $ = (id) => document.getElementById(id);
+        const dropTaino = $('drop-taino');
+        const dropOtrasCulturas = $('drop-otras-culturas');
+        const currentItemContainer = $('current-item-container');
+        const scoreDisplay = $('score-display');
+        const nextButton = $('next-button');
+
+        // --- Lógica Drag and Drop (Mantenida del original) ---
+
+        // 1. Inicia el arrastre
+        function drag(ev) {
+            isDragging = true;
+            ev.dataTransfer.setData("text", ev.target.id);
+            ev.dataTransfer.effectAllowed = "move";
+            ev.target.classList.add('opacity-70');
+        }
+
+        // 2. Permite soltar en la zona
+        function allowDrop(ev) {
+            ev.preventDefault();
+            if (isDragging) {
+                const zone = ev.currentTarget;
+                if (zone.dataset.category === 'Taíno') {
+                    zone.classList.add('drag-over-taino');
+                    zone.classList.remove('drag-over-otras-culturas');
+                } else {
+                    zone.classList.add('drag-over-otras-culturas');
+                    zone.classList.remove('drag-over-taino');
+                }
+            }
+        }
+        
+        // 3. Quita el resaltado al salir
+        function dragLeave(ev) {
+            const zone = ev.currentTarget;
+            zone.classList.remove('drag-over-taino', 'drag-over-otras-culturas');
+        }
+
+        // 4. Suelta en la zona
+        function drop(ev) {
+            ev.preventDefault();
+            isDragging = false;
+            
+            const cardId = ev.dataTransfer.getData("text");
+            const draggedCard = $(cardId);
+            const dropZone = ev.currentTarget;
+            
+            // Quita el resaltado de arrastre
+            dropTaino.classList.remove('drag-over-taino');
+            dropOtrasCulturas.classList.remove('drag-over-otras-culturas');
+            
+            if (!draggedCard || draggedCard.id !== `item-${currentItem.name}`) return;
+
+            // Verifica la clasificación
+            const correctCategory = currentItem.category;
+            const droppedCategory = dropZone.dataset.category;
+
+            if (droppedCategory === correctCategory) {
+                handleCorrectDrop(draggedCard, dropZone);
+            } else {
+                handleIncorrectDrop(draggedCard, dropZone);
+            }
+            
+            // Deshabilita la tarjeta actual y activa el botón de siguiente
+            draggedCard.draggable = false;
+            draggedCard.classList.remove('cursor-grab', 'opacity-70');
+            draggedCard.classList.add('pointer-events-none');
+            nextButton.disabled = false;
+            nextButton.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // --- Manejadores de Resultado ---
+
+        function handleCorrectDrop(card, dropZone) {
+            score++;
+            scoreDisplay.textContent = score;
+            card.classList.add('correct-drop');
+            
+            // Mueve la tarjeta al área de clasificados
+            const listContainer = dropZone.id === 'drop-taino' ? $('taino-list') : $('otras-culturas-list');
+            listContainer.appendChild(card);
+            
+            showFeedback('¡Correcto! Punto para la Herencia Taína/Otras Culturas.', 'bg-green-500');
+        }
+
+        function handleIncorrectDrop(card, dropZone) {
+            card.classList.add('incorrect-drop');
+            
+            // Mueve la tarjeta al área incorrecta (solo por un momento visual)
+            const listContainer = dropZone.id === 'drop-taino' ? $('taino-list') : $('otras-culturas-list');
+            listContainer.appendChild(card);
+            
+            showFeedback('¡Incorrecto! Revisa el origen.', 'bg-red-500');
+
+            setTimeout(() => {
+                // Quita la tarjeta de la zona incorrecta y la regresa
+                card.classList.remove('incorrect-drop');
+                currentItemContainer.appendChild(card);
+                
+                // Restaura el estado de la tarjeta y el botón
+                card.draggable = true;
+                card.classList.add('cursor-grab');
+                card.classList.remove('pointer-events-none');
+                nextButton.disabled = true;
+                nextButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+            }, 1500); 
+        }
+
+        // Crea una tarjeta de elemento arrastrable (Modificada para el nuevo tema)
+        function createItemCard(item) {
+            const card = document.createElement('div');
+            card.id = `item-${item.name}`;
+            card.className = 'item-card bg-white p-4 rounded-xl shadow-lg border-2 border-gray-300 w-40 h-40 flex flex-col items-center justify-center text-center';
+            card.draggable = true;
+            card.dataset.category = item.category;
+            card.dataset.name = item.name;
+            
+            card.innerHTML = `
+                <span class="text-5xl mb-2">${item.emoji}</span>
+                <p class="text-lg font-bold text-gray-800">${item.name}</p>
+                <p class="text-xs text-gray-500 mt-1">${item.description}</p>
+            `;
+            
+            card.addEventListener('dragstart', drag);
+            return card;
+        }
+
+        // Muestra un mensaje de feedback temporal
+        function showFeedback(message, bgColor) {
+            let feedback = document.querySelector('#feedback-message');
+            if (!feedback) {
+                feedback = document.createElement('div');
+                feedback.id = 'feedback-message';
+                feedback.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 text-white font-bold rounded-full shadow-xl transition-opacity duration-300 z-50';
+                document.body.appendChild(feedback);
+            }
+            
+            feedback.textContent = message;
+            feedback.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-6 py-3 text-white font-bold rounded-full shadow-xl transition-opacity duration-300 z-50 ${bgColor}`;
+            feedback.style.opacity = 1;
+
+            setTimeout(() => {
+                feedback.style.opacity = 0;
+            }, 1500);
+        }
+
+        // Carga la siguiente ronda (o termina el juego)
+        function loadNextRound() {
+            itemsToClassify.shift(); 
+            
+            if (itemsToClassify.length === 0) {
+                endGame();
+                return;
+            }
+            
+            currentItem = itemsToClassify[0];
+            currentItemContainer.innerHTML = '';
+            currentItemContainer.appendChild(createItemCard(currentItem));
+            
+            // Reinicia el botón de siguiente
+            nextButton.disabled = true;
+            nextButton.classList.add('opacity-50', 'cursor-not-allowed');
+            nextButton.textContent = "Siguiente";
+        }
+        
+        // Finaliza el juego
+        function endGame() {
+            $('final-score').textContent = score;
+            $('modal-end').classList.remove('hidden');
+        }
+
+        // Función de utilidad para mezclar (Fisher-Yates)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // --- Inicialización ---
+        function initGame() {
+            // Mezclar la lista
+            itemsToClassify = shuffleArray(itemsToClassify);
+            
+            // Asignar eventos a las zonas de arrastre
+            dropTaino.addEventListener('dragover', allowDrop);
+            dropTaino.addEventListener('dragleave', dragLeave);
+            dropTaino.addEventListener('drop', drop);
+            
+            dropOtrasCulturas.addEventListener('dragover', allowDrop);
+            dropOtrasCulturas.addEventListener('dragleave', dragLeave);
+            dropOtrasCulturas.addEventListener('drop', drop);
+            
+            // Deshabilitar el botón de siguiente al inicio
+            nextButton.disabled = true;
+            nextButton.classList.add('opacity-50', 'cursor-not-allowed');
+            
+            // Cargar el primer elemento
+            loadNextRound(); 
+        }
+
+        // Iniciar el juego al cargar la página
+        window.onload = initGame;
+    </script>
+</body>
+</html>
